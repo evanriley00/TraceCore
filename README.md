@@ -10,6 +10,19 @@ TraceCore is a production-style AI decision engine. It is designed to feel like 
 - Background jobs for ingestion and post-run learning signals
 - Evaluation, feedback capture, and run history endpoints
 
+## Tech Stack
+
+- Language and API: Python, FastAPI, Uvicorn
+- Auth: JWT bearer tokens, API key authentication
+- Database: SQLAlchemy ORM, PostgreSQL-ready schema, SQLite local dev mode
+- Caching and limits: Redis with in-memory fallback
+- AI orchestration: LangGraph, LangChain
+- ML component: PyTorch query classification and evidence reranking
+- Background processing: FastAPI background tasks
+- Frontend: bundled HTML, CSS, and vanilla JavaScript control panel
+- Local infra: Docker, Docker Compose
+- Testing: pytest, FastAPI TestClient
+
 ## Core Flow
 
 1. A user registers or logs in.
