@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraceCore Control Room</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+  <div class="scene-glow scene-glow-a"></div>
+  <div class="scene-glow scene-glow-b"></div>
+
+  <header class="topbar">
+    <div class="brand-lockup">
+      <p class="eyebrow">TraceCore</p>
+      <h1>Decision Engine Control Room</h1>
+      <p class="tagline">A guided workspace for registering, grounding the model, running a decision, and reviewing what happened.</p>
+    </div>
+    <nav class="top-links">
+      <a href="/docs" target="_blank" rel="noreferrer">API Docs</a>
+      <a href="/health" target="_blank" rel="noreferrer">Health</a>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <aside class="mission-panel card">
+      <div class="card-header">
+        <p class="section-kicker">Mission Flow</p>
+        <h2>What You Are Doing</h2>
+      </div>
+
+      <ol class="flow-list">
+        <li><span>1</span>Connect with a user account so the system can attach runs and feedback to you.</li>
+        <li><span>2</span>Add a small piece of source material so retrieval has something real to cite.</li>
+        <li><span>3</span>Ask a decision question and let the LangGraph workflow classify, retrieve, reason, and score.</li>
+        <li><span>4</span>Review the answer, evidence, run history, and feedback loop in one place.</li>
+      </ol>
+
+      <div class="status-stack">
+        <div class="status-chip">
+          <span class="status-label">Auth</span>
+          <strong id="auth-status">Not connected</strong>
+        </div>
+        <div class="status-chip">
+          <span class="status-label">Cache</span>
+          <strong id="cache-status">Checking</strong>
+        </div>
+        <div class="status-chip">
+          <span class="status-label">Session</span>
+          <strong id="session-status">No active session</strong>
+        </div>
+      </div>
+
+      <div class="side-actions">
+        <button id="load-sample" class="button ghost">Load Demo Content</button>
+        <button id="refresh-runs" class="button ghost">Refresh Runs</button>
+      </div>
+
+      <section class="activity-panel">
+        <div class="card-header compact">
+          <p class="section-kicker">Activity</p>
+          <h3>Live Notes</h3>
+        </div>
+        <div id="activity-log" class="activity-log"></div>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <section class="card hero-card">
+        <div class="hero-copy">
+          <p class="section-kicker">Guided Workspace</p>
+          <h2>Stop Thinking About Headers</h2>
+          <p>Register or log in once. After that, this panel sends the right auth for you and keeps your session, latest request, and run history visible.</p>
+        </div>
+        <div class="hero-pills">
+          <div class="hero-pill">
+            <span>Workflow</span>
+            <strong>LangGraph</strong>
+          </div>
+          <div class="hero-pill">
+            <span>Storage</span>
+            <strong>SQLAlchemy</strong>
+          </div>
+          <div class="hero-pill">
+            <span>Scoring</span>
+            <strong>PyTorch</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="card auth-card" id="auth-card">
+        <div class="card-header">
+          <div>
+            <p class="section-kicker">Step 1</p>
+            <h2>Connect</h2>
+          </div>
+          <button id="sign-out" class="button ghost is-hidden" type="button">Sign Out</button>
+        </div>
+
+        <div class="segmented-control">
+          <button id="auth-register-tab" class="segment is-active" type="button">Register</button>
+          <button id="auth-login-tab" class="segment" type="button">Log In</button>
+        </div>
+
+        <p id="auth-summary" class="support-text">Create a local account once and the UI will keep the token for you in this browser.</p>
+
+        <form id="register-form" class="stack-form">
+          <label>
+            <span>Full Name</span>
+            <input id="register-name" name="full_name" placeholder="Evan Riley">
+          </label>
+          <label>
+            <span>Email</span>
+            <input id="register-email" name="email" type="email" placeholder="you@example.com" required>
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="register-password" name="password" type="password" placeholder="At least 8 characters" required>
+          </label>
+          <button class="button primary" type="submit">Create Account</button>
+        </form>
+
+        <form id="login-form" class="stack-form is-hidden">
+          <label>
+            <span>Email</span>
+            <input id="login-email" name="email" type="email" placeholder="you@example.com" required>
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="login-password" name="password" type="password" placeholder="Your existing password" required>
+          </label>
+          <button class="button primary" type="submit">Log In</button>
+        </form>
+
+        <div id="identity-card" class="identity-card is-hidden">
+          <div>
+            <p class="identity-label">Connected As</p>
+            <strong id="identity-name">Unknown user</strong>
+            <p id="identity-detail" class="support-text"></p>
+          </div>
+          <div class="auth-mode-badge" id="auth-mode-badge">Bearer token ready</div>
+        </div>
+      </section>
+
+      <section class="card ingest-card">
+        <div class="card-header">
+          <div>
+            <p class="section-kicker">Step 2</p>
+            <h2>Add Source Material</h2>
+          </div>
+        </div>
+        <p class="support-text">Paste a short brief, report excerpt, or scouting note so the engine has something to retrieve as evidence.</p>
+
+        <form id="ingest-form" class="stack-form">
+          <label>
+            <span>Title</span>
+            <input id="doc-title" placeholder="Solar Energy Brief" required>
+          </label>
+          <label>
+            <span>Source</span>
+            <input id="doc-source" placeholder="internal_research">
+          </label>
+          <label>
+            <span>Tags</span>
+            <input id="doc-tags" placeholder="energy, solar, costs">
+          </label>
+          <label>
+            <span>Content</span>
+            <textarea id="doc-content" rows="6" placeholder="Paste the material you want the engine to use as evidence." required></textarea>
+          </label>
+          <button class="button secondary" type="submit">Ingest Document</button>
+        </form>
+
+        <div id="ingest-summary" class="inline-summary">No document ingested yet.</div>
+      </section>
+
+      <section class="card query-card">
+        <div class="card-header">
+          <div>
+            <p class="section-kicker">Step 3</p>
+            <h2>Run The Engine</h2>
+          </div>
+        </div>
+        <p class="support-text">Ask a question in plain English. The system will classify it, retrieve evidence, generate a recommendation, and score the output.</p>
+
+        <form id="query-form" class="stack-form">
+          <label>
+            <span>Question</span>
+            <textarea id="query-question" rows="5" placeholder="Summarize this topic and give evidence for the recommendation." required></textarea>
+          </label>
+          <label>
+            <span>Session Key</span>
+            <input id="query-session-key" placeholder="Filled automatically after your first run">
+          </label>
+          <label class="toggle-row">
+            <input id="query-use-cache" type="checkbox" checked>
+            <span>Reuse cached responses when possible</span>
+          </label>
+          <button class="button primary" type="submit">Run Decision Workflow</button>
+        </form>
+      </section>
+
+      <section class="card result-card">
+        <div class="card-header">
+          <div>
+            <p class="section-kicker">Step 4</p>
+            <h2>See The Result</h2>
+          </div>
+          <div id="result-meta" class="inline-summary">No run yet.</div>
+        </div>
+
+        <div id="result-empty" class="empty-state">
+          <h3>Nothing has run yet.</h3>
+          <p>Once you submit a query, this area will show the final answer, evidence, confidence, evaluation score, and the request ID you can attach feedback to.</p>
+        </div>
+
+        <div id="result-panel" class="result-panel is-hidden">
+          <div class="metrics-grid" id="metrics-grid"></div>
+
+          <section class="result-block">
+            <p class="result-label">Answer</p>
+            <pre id="answer-text" class="answer-text"></pre>
+          </section>
+
+          <section class="result-block">
+            <p class="result-label">Evidence</p>
+            <div id="evidence-list" class="evidence-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="card runs-card">
+        <div class="card-header">
+          <div>
+            <p class="section-kicker">Trace</p>
+            <h2>Recent Runs</h2>
+          </div>
+        </div>
+        <div id="runs-list" class="runs-list">
+          <div class="empty-inline">Sign in and run a query to see history here.</div>
+        </div>
+      </section>
+
+      <section class="card feedback-card">
+        <div class="card-header">
+          <div>
+            <p class="section-kicker">Learning Loop</p>
+            <h2>Attach Feedback</h2>
+          </div>
+          <button id="use-last-request" class="button ghost" type="button">Use Latest Request</button>
+        </div>
+        <p class="support-text">Feedback is stored against a request so the engine can learn which responses felt useful.</p>
+
+        <form id="feedback-form" class="stack-form">
+          <label>
+            <span>Request ID</span>
+            <input id="feedback-request-id" type="number" min="1" placeholder="Filled automatically after a run" required>
+          </label>
+          <label>
+            <span>Rating</span>
+            <select id="feedback-rating">
+              <option value="5">5 - Excellent</option>
+              <option value="4">4 - Good</option>
+              <option value="3">3 - Acceptable</option>
+              <option value="2">2 - Weak</option>
+              <option value="1">1 - Poor</option>
+            </select>
+          </label>
+          <label>
+            <span>Comment</span>
+            <textarea id="feedback-comment" rows="4" placeholder="What helped, what felt weak, what should improve next time?"></textarea>
+          </label>
+          <button class="button secondary" type="submit">Save Feedback</button>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <div id="toast" class="toast is-hidden"></div>
+</body>
+</html>
