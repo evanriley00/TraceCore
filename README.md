@@ -77,7 +77,7 @@ TraceCore now exposes a control-plane-friendly runtime contract:
 - `POST /control/resume`
 - `POST /control/stop`
 
-`pause` blocks new query, ingest, and feedback intake while keeping health and observability online. `stop` places the service in maintenance mode so business routes return `503` until `resume` is called.
+`pause` blocks new query, ingest, and feedback intake while keeping health and observability online. `stop` places the service in maintenance mode so business routes return `503` until `resume` is called, while operator login, health, and control access remain available.
 
 If you want to protect these endpoints, set `CONTROL_API_TOKEN` in `.env` and send it as a bearer token.
 

@@ -62,6 +62,34 @@ def test_stop_keeps_observability_alive_but_blocks_business_routes(client: TestC
     assert blocked_runs.status_code == 503
     assert blocked_runs.json()["status"] == "stopped"
 
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": "control-operator@example.com",
+            "password": "super-secret-password",
+        },
+    )
+    assert login_response.status_code == 200
+    access_token = login_response.json()["access_token"]
+
+    me_response = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert me_response.status_code == 200
+    assert me_response.json()["email"] == "control-operator@example.com"
+
+    blocked_register = client.post(
+        "/auth/register",
+        json={
+            "email": "blocked-during-maintenance@example.com",
+            "password": "super-secret-password",
+            "full_name": "Blocked Register",
+        },
+    )
+    assert blocked_register.status_code == 503
+    assert blocked_register.json()["status"] == "stopped"
+
     status_response = client.get("/control/status")
     assert status_response.status_code == 200
     assert status_response.json()["state"] == "stopped"

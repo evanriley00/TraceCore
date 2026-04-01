@@ -17,6 +17,10 @@ OBSERVABILITY_PATH_PREFIXES = (
     "/redoc",
     "/static",
 )
+MAINTENANCE_OPERATOR_PATHS = {
+    ("POST", "/auth/login"),
+    ("GET", "/auth/me"),
+}
 INTAKE_PATHS = {
     ("POST", "/v1/query"),
     ("POST", "/v1/documents/ingest"),
@@ -123,7 +127,7 @@ class RuntimeControlManager:
         return self.transition(
             "stopped",
             "stop",
-            "TraceCore is in maintenance mode. Business routes are disabled until resumed.",
+            "TraceCore is in maintenance mode. Business routes are disabled while operator login, health, and control access remain available.",
         )
 
     def begin_request(self) -> None:
@@ -139,6 +143,10 @@ def is_observability_path(path: str) -> bool:
     return any(path.startswith(prefix) for prefix in OBSERVABILITY_PATH_PREFIXES)
 
 
+def is_maintenance_operator_path(method: str, path: str) -> bool:
+    return (method.upper(), path) in MAINTENANCE_OPERATOR_PATHS
+
+
 def blocks_request(state: RuntimeControlState, method: str, path: str) -> bool:
     if is_observability_path(path):
         return False
@@ -147,10 +155,10 @@ def blocks_request(state: RuntimeControlState, method: str, path: str) -> bool:
         return (method.upper(), path) in INTAKE_PATHS
 
     if state == "stopped":
-        return True
+        return not is_maintenance_operator_path(method, path)
 
     return False
 
 
 def should_track_request(path: str) -> bool:
-    return not is_observability_path(path)
+    return not is_observability_path(path) and not path.startswith("/auth")
