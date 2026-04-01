@@ -42,6 +42,10 @@ TraceCore is a production-style AI decision engine. It is designed to feel like 
 - `GET /v1/runs`
 - `POST /v1/feedback`
 - `GET /health`
+- `GET /control/status`
+- `POST /control/pause`
+- `POST /control/resume`
+- `POST /control/stop`
 
 ## Running Locally
 
@@ -63,6 +67,19 @@ This path uses SQLite by default and falls back to in-memory caching if Redis is
 4. Start the API with `python -m uvicorn app.main:app --reload`.
 
 Run tests with `python -m pytest`.
+
+## Runtime Control
+
+TraceCore now exposes a control-plane-friendly runtime contract:
+
+- `GET /control/status`
+- `POST /control/pause`
+- `POST /control/resume`
+- `POST /control/stop`
+
+`pause` blocks new query, ingest, and feedback intake while keeping health and observability online. `stop` places the service in maintenance mode so business routes return `503` until `resume` is called.
+
+If you want to protect these endpoints, set `CONTROL_API_TOKEN` in `.env` and send it as a bearer token.
 
 ## Notes
 

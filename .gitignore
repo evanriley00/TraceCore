@@ -3,7 +3,7 @@
 __pycache__/
 *.py[cod]
 *.db
+.tracecore-control-state.json
 dist/
 build/
 *.egg-info/
-

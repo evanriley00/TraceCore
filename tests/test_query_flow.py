@@ -66,3 +66,38 @@ def test_ingest_query_cache_and_feedback_flow(client):
     assert feedback_response.status_code == 201
     assert feedback_response.json()["rating"] == 5
 
+
+def test_recent_uploaded_document_is_used_for_referential_summary_queries(client):
+    headers = _register_headers(client)
+
+    ingest_response = client.post(
+        "/v1/documents/ingest",
+        headers=headers,
+        json={
+            "title": "UDSS",
+            "content": (
+                "Universal Design for Student Success helps educators present material in multiple ways, "
+                "offer flexible participation options, and remove learning barriers before students hit them."
+            ),
+            "source": "UDSS",
+            "tags": ["education", "framework"],
+        },
+    )
+    assert ingest_response.status_code == 202
+    assert ingest_response.json()["status"] == "queued"
+
+    query_response = client.post(
+        "/v1/query",
+        headers=headers,
+        json={
+            "question": "Summarize this content and explain it easily.",
+            "use_cache": False,
+        },
+    )
+    assert query_response.status_code == 200
+    payload = query_response.json()
+
+    assert payload["query_type"] == "evidence_summary"
+    assert len(payload["evidence"]) >= 1
+    assert payload["evidence"][0]["source"] == "UDSS"
+    assert "Universal Design for Student Success" in payload["evidence"][0]["snippet"]

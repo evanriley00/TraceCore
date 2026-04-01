@@ -23,9 +23,10 @@ class Settings(BaseSettings):
     mock_llm_enabled: bool = True
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1-mini"
+    control_api_token: str | None = None
+    control_state_path: str = ".tracecore-control-state.json"
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
-

@@ -150,7 +150,7 @@
             <h2>Add Source Material</h2>
           </div>
         </div>
-        <p class="support-text">Paste a short brief, report excerpt, or scouting note so the engine has something to retrieve as evidence.</p>
+        <p class="support-text">Upload a text-based file or paste a short brief so the engine has something grounded to retrieve as evidence.</p>
 
         <form id="ingest-form" class="stack-form">
           <label>
@@ -166,8 +166,19 @@
             <input id="doc-tags" placeholder="energy, solar, costs">
           </label>
           <label>
-            <span>Content</span>
-            <textarea id="doc-content" rows="6" placeholder="Paste the material you want the engine to use as evidence." required></textarea>
+            <span>Upload File</span>
+            <input
+              id="doc-file"
+              type="file"
+              accept=".txt,.md,.markdown,.csv,.tsv,.json,.log,.html,.htm,.xml,.yaml,.yml,.rst,text/plain,text/markdown,text/csv,application/json,text/html,application/xml,text/xml"
+            >
+          </label>
+          <div id="doc-file-meta" class="upload-meta">
+            No file selected yet. Choose a text-based file and TraceCore will load it into the content preview below.
+          </div>
+          <label>
+            <span>Content Preview</span>
+            <textarea id="doc-content" rows="8" placeholder="Choose a file or paste the material you want the engine to use as evidence." required></textarea>
           </label>
           <button class="button secondary" type="submit">Ingest Document</button>
         </form>

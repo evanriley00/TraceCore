@@ -1,4 +1,19 @@
 const STORAGE_KEY = "tracecore-control-room-state";
+const SUPPORTED_UPLOAD_EXTENSIONS = new Set([
+  "txt",
+  "md",
+  "markdown",
+  "csv",
+  "tsv",
+  "json",
+  "log",
+  "html",
+  "htm",
+  "xml",
+  "yaml",
+  "yml",
+  "rst",
+]);
 
 const defaultState = {
   accessToken: "",
@@ -51,6 +66,8 @@ function captureDom() {
   dom.docTitle = document.querySelector("#doc-title");
   dom.docSource = document.querySelector("#doc-source");
   dom.docTags = document.querySelector("#doc-tags");
+  dom.docFile = document.querySelector("#doc-file");
+  dom.docFileMeta = document.querySelector("#doc-file-meta");
   dom.docContent = document.querySelector("#doc-content");
   dom.ingestForm = document.querySelector("#ingest-form");
   dom.ingestSummary = document.querySelector("#ingest-summary");
@@ -90,6 +107,7 @@ function bindEvents() {
 
   dom.registerForm.addEventListener("submit", handleRegister);
   dom.loginForm.addEventListener("submit", handleLogin);
+  dom.docFile.addEventListener("change", handleDocumentFileSelection);
   dom.ingestForm.addEventListener("submit", handleIngest);
   dom.queryForm.addEventListener("submit", handleQuery);
   dom.feedbackForm.addEventListener("submit", handleFeedback);
@@ -126,7 +144,7 @@ function applyState() {
     : "Checking";
 
   dom.ingestSummary.textContent = state.lastDocument
-    ? `Last document: "${state.lastDocument.title}" is ${state.lastDocument.status}.`
+    ? buildIngestSummary(state.lastDocument)
     : "No document ingested yet.";
 
   if (state.sessionKey) {
@@ -336,10 +354,64 @@ async function handleIngest(event) {
     });
 
     state.lastDocument = response;
-    pushLog(`Document "${response.title}" was queued for ingestion.`);
+    pushLog(`Document "${response.title}" was queued and is available for retrieval right away.`);
     applyState();
     showToast("Document ingested. You can ask a question now.", "success");
   });
+}
+
+async function handleDocumentFileSelection(event) {
+  const [file] = event.target.files || [];
+
+  if (!file) {
+    setDocumentFileMeta(
+      "No file selected yet. Choose a text-based file and TraceCore will load it into the content preview below.",
+    );
+    return;
+  }
+
+  if (!isSupportedUpload(file)) {
+    dom.docFile.value = "";
+    setDocumentFileMeta(
+      "That file type is not supported here yet. Use a text-based file such as .txt, .md, .csv, .json, or .html.",
+      "error",
+    );
+    showToast("Choose a text-based file for document ingest.", "error");
+    return;
+  }
+
+  try {
+    const content = await file.text();
+    const trimmedContent = content.trim();
+
+    if (!trimmedContent) {
+      throw new Error("The selected file is empty.");
+    }
+
+    dom.docContent.value = trimmedContent;
+
+    if (!dom.docTitle.value.trim()) {
+      dom.docTitle.value = deriveTitleFromFilename(file.name);
+    }
+
+    if (!dom.docSource.value.trim()) {
+      dom.docSource.value = file.name;
+    }
+
+    setDocumentFileMeta(
+      `Loaded ${file.name} (${formatFileSize(file.size)}). You can review or edit the extracted text below.`,
+      "success",
+    );
+    pushLog(`Loaded "${file.name}" into the document content preview.`);
+    showToast(`Loaded ${file.name}.`, "success");
+  } catch (error) {
+    dom.docFile.value = "";
+    setDocumentFileMeta(
+      "TraceCore could not read that file. Try a UTF-8 text file or paste the content manually.",
+      "error",
+    );
+    showToast(error.message || "That file could not be read.", "error");
+  }
 }
 
 async function handleQuery(event) {
@@ -444,7 +516,12 @@ function loadDemoContent() {
   dom.docTitle.value = "Solar Energy Brief";
   dom.docSource.value = "internal_research";
   dom.docTags.value = "energy, solar, costs";
+  dom.docFile.value = "";
   dom.docContent.value = "Solar energy reduces long-term electricity costs, improves grid resilience, and lowers carbon emissions when deployed at scale.";
+  setDocumentFileMeta(
+    "Demo content loaded directly into the preview. You can replace it by choosing a text-based file.",
+    "success",
+  );
   dom.queryQuestion.value = "Summarize solar energy and give evidence for the recommendation.";
   dom.queryUseCache.checked = true;
   pushLog("Loaded a demo document and sample question into the forms.");
@@ -543,6 +620,20 @@ function showToast(message, tone = "info") {
   }, 3200);
 }
 
+function setDocumentFileMeta(message, tone = "info") {
+  dom.docFileMeta.textContent = message;
+  dom.docFileMeta.classList.toggle("is-success", tone === "success");
+  dom.docFileMeta.classList.toggle("is-error", tone === "error");
+}
+
+function buildIngestSummary(document) {
+  if (document.status === "queued") {
+    return `Last document: "${document.title}" is queued and available for immediate queries.`;
+  }
+
+  return `Last document: "${document.title}" is ${document.status}.`;
+}
+
 function activeAuthBadge() {
   if (state.accessToken) {
     return "Bearer token ready";
@@ -601,6 +692,50 @@ function formatTimestamp(value) {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatFileSize(size) {
+  if (!size) {
+    return "0 B";
+  }
+
+  const units = ["B", "KB", "MB", "GB"];
+  let value = size;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const roundedValue = value >= 10 || unitIndex === 0
+    ? Math.round(value)
+    : value.toFixed(1);
+
+  return `${roundedValue} ${units[unitIndex]}`;
+}
+
+function deriveTitleFromFilename(filename) {
+  const trimmedName = filename.trim();
+  const extensionIndex = trimmedName.lastIndexOf(".");
+  const baseName = extensionIndex > 0
+    ? trimmedName.slice(0, extensionIndex)
+    : trimmedName;
+
+  return baseName.replace(/[_-]+/g, " ").trim() || "Uploaded Document";
+}
+
+function isSupportedUpload(file) {
+  const normalizedName = file.name.trim().toLowerCase();
+  const extension = normalizedName.includes(".")
+    ? normalizedName.split(".").pop()
+    : "";
+
+  if (SUPPORTED_UPLOAD_EXTENSIONS.has(extension)) {
+    return true;
+  }
+
+  return file.type.startsWith("text/") || file.type === "application/json" || file.type === "application/xml";
 }
 
 function escapeHtml(value) {

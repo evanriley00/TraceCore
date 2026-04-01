@@ -15,6 +15,7 @@ def client(tmp_path: Path):
         jwt_secret="test-secret-for-tracecore-suite-1234567890",
         rate_limit_per_minute=100,
         mock_llm_enabled=True,
+        control_state_path=str(tmp_path / "tracecore-control-state.json"),
     )
     app = create_app(settings)
     with TestClient(app) as test_client:

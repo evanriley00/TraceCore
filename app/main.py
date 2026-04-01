@@ -4,9 +4,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.auth import router as auth_router
+from app.api.routes.control import router as control_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.feedback import router as feedback_router
 from app.api.routes.health import router as health_router
@@ -15,6 +17,11 @@ from app.api.routes.ui import router as ui_router
 from app.core.config import Settings, get_settings
 from app.db.session import build_engine, build_session_factory, init_database
 from app.services.cache import DecisionCache, RateLimiter
+from app.services.runtime_control import (
+    blocks_request,
+    should_track_request,
+    RuntimeControlManager,
+)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -24,6 +31,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     session_factory = build_session_factory(engine)
     cache = DecisionCache(resolved_settings.redis_url)
     rate_limiter = RateLimiter(cache, resolved_settings.rate_limit_per_minute)
+    runtime_control = RuntimeControlManager(resolved_settings.control_state_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -38,10 +46,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_factory = session_factory
     app.state.cache = cache
     app.state.rate_limiter = rate_limiter
+    app.state.runtime_control = runtime_control
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+    @app.middleware("http")
+    async def runtime_control_middleware(request, call_next):
+        control_snapshot = app.state.runtime_control.snapshot()
+        path = request.url.path
+        method = request.method.upper()
+
+        if blocks_request(control_snapshot["state"], method, path):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": control_snapshot["detail"],
+                    "status": control_snapshot["state"],
+                },
+            )
+
+        track_request = should_track_request(path)
+
+        if track_request:
+            app.state.runtime_control.begin_request()
+
+        try:
+            return await call_next(request)
+        finally:
+            if track_request:
+                app.state.runtime_control.end_request()
 
     app.include_router(ui_router)
     app.include_router(health_router)
+    app.include_router(control_router)
     app.include_router(auth_router)
     app.include_router(documents_router)
     app.include_router(queries_router)
